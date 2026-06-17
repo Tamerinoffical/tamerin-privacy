@@ -1,77 +1,753 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>プライバシーポリシー - ためリン</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            color: #333;
-            line-height: 1.8;
-        }
-        h1 { font-size: 1.6em; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        h2 { font-size: 1.2em; margin-top: 2em; color: #555; }
-        p  { margin: 0.8em 0; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHADOW RUNNER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* ---- token system ---- */
+    --sky-top:#7ec8f0; --sky-bot:#cdeefb;
+    --ink:#16121f;            /* 影・縁取りの濃い色 */
+    --panel:#1d1726;          /* オーバーレイ背景 */
+    --panel-edge:#3a2f4f;
+    --paper:#f3ead9;          /* UI文字 */
+    --accent:#ff5d73;         /* 主役アクセント（リスタート等） */
+    --accent2:#7c5cff;        /* 影ギミックの色 */
+    --good:#5bd6a0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#0d0a13;
+    font-family:'DotGothic16',monospace;color:var(--paper);
+    -webkit-font-smoothing:none; image-rendering:pixelated;}
+  #wrap{position:relative;width:100vw;height:100vh;display:flex;
+    align-items:center;justify-content:center;overflow:hidden;}
+  /* キャンバスは内部960x540、アスペクト維持で拡大 */
+  #stage{position:relative;width:min(100vw,177.78vh);aspect-ratio:16/9;
+    box-shadow:0 0 0 4px var(--ink),0 18px 50px rgba(0,0,0,.6);}
+  canvas{display:block;width:100%;height:100%;image-rendering:pixelated;}
+
+  /* ---- HUDとオーバーレイ ---- */
+  .overlay{position:absolute;inset:0;display:none;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;gap:22px;
+    background:radial-gradient(120% 120% at 50% 30%,rgba(29,23,38,.82),rgba(13,10,19,.96));
+    padding:24px;}
+  .overlay.show{display:flex;animation:fade .25s ease both;}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .title{font-size:clamp(28px,6vw,64px);letter-spacing:.04em;line-height:1.05;
+    text-shadow:0 3px 0 var(--ink),0 0 22px rgba(124,92,255,.55);}
+  .title b{color:var(--accent2)}
+  .sub{font-size:clamp(12px,1.7vw,17px);max-width:30em;line-height:1.9;
+    color:#cdc4dd;}
+  .keys{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
+    font-size:clamp(11px,1.5vw,15px);color:#e8e1f5;}
+  .key{border:2px solid var(--panel-edge);background:#241d31;border-radius:8px;
+    padding:8px 12px;min-width:42px;}
+  .key small{display:block;color:#9b8fb5;font-size:.78em;margin-top:3px;}
+  .btns{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;}
+  button.game{font-family:inherit;font-size:clamp(14px,2vw,20px);cursor:pointer;
+    color:var(--paper);background:var(--accent);border:none;border-radius:10px;
+    padding:14px 30px;box-shadow:0 5px 0 #b23a4e;transition:transform .06s,box-shadow .06s;}
+  button.game:hover{transform:translateY(2px);box-shadow:0 3px 0 #b23a4e;}
+  button.game:active{transform:translateY(5px);box-shadow:0 0 0 #b23a4e;}
+  button.game.ghost{background:#3a2f4f;box-shadow:0 5px 0 #221a30;}
+  button.game.ghost:hover{box-shadow:0 3px 0 #221a30;}
+  button.game.go{background:var(--good);box-shadow:0 5px 0 #2f9b6e;color:#0d2a1e;}
+  button.game.go:hover{box-shadow:0 3px 0 #2f9b6e;}
+  button.game:focus-visible{outline:3px solid #fff;outline-offset:3px;}
+  .clear-big{font-size:clamp(40px,9vw,96px);color:var(--good);
+    text-shadow:0 4px 0 var(--ink),0 0 30px rgba(91,214,160,.6);}
+  .deaths-line{font-size:clamp(13px,2vw,18px);color:#cdc4dd;}
+  .hint{position:absolute;left:14px;bottom:12px;font-size:11px;color:#b9aed0;
+    opacity:.8;text-shadow:0 1px 0 #000;line-height:1.6;}
+  @media (prefers-reduced-motion: reduce){.overlay.show{animation:none}}
+</style>
 </head>
 <body>
-    <h1>プライバシーポリシー</h1>
-    <p>最終更新日：2026年6月12日</p>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="cv" width="960" height="540"></canvas>
 
-    <h2>1. はじめに</h2>
-    <p>
-        ためリン（以下「本アプリ」）は、ユーザーのプライバシーを最大限に尊重します。
-        本ポリシーは、本アプリがどのような情報を取り扱うかについて説明します。
-    </p>
+    <!-- タイトル -->
+    <div id="titleScreen" class="overlay show">
+      <div class="title">SHADOW <b>RUNNER</b></div>
+      <div class="sub">スタートからゴールまで走り抜けろ。<br>
+        敵は踏んで倒せる。だが — <b style="color:var(--accent2)">立ち止まれば、おまえ自身の影が追いつく。</b></div>
+      <div class="keys">
+        <span class="key">A / ←<small>左</small></span>
+        <span class="key">D / →<small>右</small></span>
+        <span class="key">Space<small>ジャンプ</small></span>
+        <span class="key">R<small>やり直す</small></span>
+        <span class="key">P<small>一時停止</small></span>
+      </div>
+      <div class="btns"><button class="game go" id="startBtn">はじめる</button></div>
+    </div>
 
-    <h2>2. 収集する情報</h2>
-    <p>
-        本アプリは、収支記録・ジャンル・予算設定・目標貯金などのデータを
-        <strong>ユーザーの端末内にのみ保存</strong>します。
-        これらのデータが外部サーバーに送信されることは一切ありません。
-    </p>
-    <p>本アプリが収集・送信する個人情報はありません。</p>
+    <!-- クリア -->
+    <div id="clearScreen" class="overlay">
+      <div class="clear-big">ゴール！</div>
+      <div class="deaths-line" id="clearStats"></div>
+      <div class="btns">
+        <button class="game" id="restartBtn">はじめから</button>
+        <button class="game ghost" id="quitBtn">終了</button>
+      </div>
+    </div>
 
-    <h2>3. データの保存場所</h2>
-    <p>
-        すべてのデータはお使いのiOSデバイスのローカルストレージに保存されます。
-        アプリを削除すると、すべてのデータが削除されます。
-    </p>
+    <!-- 終了 -->
+    <div id="endScreen" class="overlay">
+      <div class="title">おつかれさま</div>
+      <div class="sub">ゲームを終了しました。</div>
+      <div class="btns"><button class="game go" id="againBtn">もう一度あそぶ</button></div>
+    </div>
 
-    <h2>4. カメラへのアクセス</h2>
-    <p>
-        本アプリはレシートの金額を自動入力するためにカメラを使用することがあります。
-        撮影した画像は金額・日付の抽出処理にのみ使用され、端末外に送信されません。
-        カメラへのアクセスはユーザーが許可した場合のみ行われます。
-    </p>
+    <div class="hint">A/← D/→ で移動・Space でジャンプ／R: やり直す／P: 一時停止</div>
+  </div>
+</div>
 
-    <h2>5. 通知</h2>
-    <p>
-        本アプリは目標貯金の期限通知など、ユーザーが設定した場合にのみ
-        プッシュ通知を送信します。通知はローカル通知であり、
-        外部サーバーを経由しません。
-    </p>
+<script>
+"use strict";
+/* =========================================================================
+   SHADOW RUNNER  —  横スクロール・アクション
+   単一HTML / Canvas 2D。座標はワールドピクセル、カメラでスクロール。
+   ========================================================================= */
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;          // 内部解像度 960x540
 
-    <h2>6. 第三者へのデータ提供</h2>
-    <p>本アプリはユーザーデータを第三者に提供・販売することは一切ありません。</p>
+/* ---- 基本パラメータ ---- */
+const GROUND_TOP = 460;        // 地面の上端y
+const GRAV = 0.85;             // 重力
+const MAX_FALL = 17;           // 落下速度上限
+const RUN = 4.6;               // 横移動速度
+const JUMP_V = -15.5;          // ジャンプ初速
+const PW = 30, PH = 42;        // プレイヤーサイズ
+const SHADOW_DELAY = 78;       // 影が遅れて追ってくるフレーム数(約1.3秒)
+const FALL_DEATH_Y = 620;      // これより下に落ちたら死亡(落とし穴)
 
-    <h2>7. 子どものプライバシー</h2>
-    <p>本アプリは13歳未満の子どもを対象としておらず、意図的に情報を収集しません。</p>
+/* =========================================================================
+   レベル定義（ワールド座標）
+   - segments : 地面の塊。塊と塊の隙間が「落とし穴」になる
+   - platforms: 空中の足場
+   - pipes    : 土管(パックンフラワーの出る花壇)
+   ========================================================================= */
+const LEVEL = {
+  width: 6900,
+  startX: 70,
+  goalX: 6620,
+  segments: [
+    {x:-60, w:1180},     // スタート地面
+    {x:1240, w:980},     // 穴(120)
+    {x:2360, w:520},
+    {x:2900, w:760},     // ドッスン回廊
+    {x:3810, w:1420},    // 穴(150)
+    {x:5360, w:1600},    // ボス＆ゴール地帯
+  ],
+  platforms: [
+    {x:900,  y:360, w:90, h:24},   // 段差
+    {x:2250, y:368, w:110,h:24},   // 穴渡りの飛び石
+    {x:3680, y:362, w:120,h:24},   // 穴渡りの飛び石
+    {x:4350, y:330, w:120,h:24},
+    {x:4540, y:250, w:120,h:24},   // 階段状
+  ],
+  pipes: [
+    {x:1520, top:360},  // パックンフラワー
+    {x:3260, top:344},
+  ],
+};
 
-    <h2>8. 本ポリシーの変更</h2>
-    <p>
-        本ポリシーを変更する場合は、本ページにて更新日とともに公開します。
-        重要な変更がある場合はアプリ内でお知らせします。
-    </p>
+/* 静的な当たり判定（地面・足場・土管）を矩形配列にまとめる */
+let SOLIDS = [];
+function buildSolids(){
+  SOLIDS = [];
+  for(const s of LEVEL.segments)
+    SOLIDS.push({x:s.x, y:GROUND_TOP, w:s.w, h:240, ground:true});
+  for(const p of LEVEL.platforms)
+    SOLIDS.push({x:p.x, y:p.y, w:p.w, h:p.h});
+  for(const p of LEVEL.pipes)
+    SOLIDS.push({x:p.x, y:p.top, w:74, h:GROUND_TOP-p.top, pipe:true});
+}
 
-    <h2>9. お問い合わせ</h2>
-    <p>
-        プライバシーに関するご質問は、下記メールアドレスまでお問い合わせください。<br>
-        <strong>tamerin.app@gmail.com</strong>
-    </p>
+/* =========================================================================
+   敵の初期配置テンプレート（リセット時に毎回ここから複製）
+   type: goomba(歩く) / para(飛ぶ) / piranha(土管) / thwomp(降る) / boss
+   ========================================================================= */
+function enemyTemplates(){
+  return [
+    // クリボー：地面を歩く
+    {type:'goomba', x:560,  y:GROUND_TOP-26, w:34, h:26, dir:-1, spd:1.1},
+    {type:'goomba', x:1760, y:GROUND_TOP-26, w:34, h:26, dir:1,  spd:1.2},
+    {type:'goomba', x:2620, y:GROUND_TOP-26, w:34, h:26, dir:-1, spd:1.3},
+    {type:'goomba', x:4120, y:GROUND_TOP-26, w:34, h:26, dir:-1, spd:1.3},
+    {type:'goomba', x:4760, y:GROUND_TOP-26, w:34, h:26, dir:1,  spd:1.4},
+
+    // パタパタ：空を飛び、ジャンプしてきた所を狙う（上下＋左右に巡回）
+    {type:'para', x:2240, y:300, w:38, h:30, baseY:300, ampY:60, t:0, dir:1, rangeL:2150, rangeR:2360, spd:1.0},
+    {type:'para', x:4960, y:280, w:38, h:30, baseY:280, ampY:70, t:1.5, dir:1, rangeL:4820, rangeR:5120, spd:1.2},
+
+    // パックンフラワー：土管から出入りする
+    {type:'piranha', pipe:0, x:1520+37, w:30, h:46, t:0,   state:'hidden', timer:60},
+    {type:'piranha', pipe:1, x:3260+37, w:30, h:46, t:1.2, state:'hidden', timer:90},
+
+    // ドッスン：見えていて、真下を通ると降ってくる
+    {type:'thwomp', x:2980, y:130, w:74, h:74, homeY:130, vy:0, state:'idle', wait:0},
+    {type:'thwomp', x:3480, y:110, w:74, h:74, homeY:110, vy:0, state:'idle', wait:0},
+
+    // クッパ：ゴール直前。高く飛び跳ね、黒い球を投げる。踏んでも倒せない
+    {type:'boss', x:5860, y:GROUND_TOP-92, w:92, h:92, vy:0, onGround:true,
+     jumpTimer:70, shootTimer:90, homeX:5860, dir:-1},
+  ];
+}
+
+/* =========================================================================
+   ゲーム状態
+   ========================================================================= */
+const STATE = {TITLE:'title', PLAY:'play', CLEAR:'clear', END:'end'};
+let state = STATE.TITLE;
+let paused = false;
+
+let player, camX, enemies, balls, deaths, pathBuf, shadow, deathFlash, frame;
+
+function resetRun(){
+  // スタート地点に戻る（死亡時もこれを使う）。死亡地点マーカーは保持。
+  player = {x:LEVEL.startX, y:GROUND_TOP-PH, w:PW, h:PH, vx:0, vy:0,
+            onGround:false, face:1, anim:0, invuln:0};
+  camX = 0;
+  enemies = enemyTemplates();
+  balls = [];           // ボスの黒い球
+  pathBuf = [];         // プレイヤーの軌跡（影が再生する）
+  shadow = {x:LEVEL.startX, y:GROUND_TOP-PH, w:PW, h:PH, active:false};
+  deathFlash = 0;
+}
+function fullReset(){
+  buildSolids();
+  deaths = [];          // 死亡地点（常時表示）
+  frame = 0;
+  resetRun();
+}
+
+/* =========================================================================
+   入力
+   ========================================================================= */
+const keys = {left:false, right:false};
+let jumpQueued = false;
+const blockKeys = new Set([' ','arrowleft','arrowright','arrowup','arrowdown','spacebar']);
+addEventListener('keydown', e=>{
+  const k = e.key.toLowerCase();
+  if(blockKeys.has(k)) e.preventDefault();
+  if(k==='a'||k==='arrowleft')  keys.left=true;
+  if(k==='d'||k==='arrowright') keys.right=true;
+  if(k===' '||k==='spacebar'||k==='arrowup'){ if(!e.repeat) jumpQueued=true; }
+  if(k==='r'){ if(state===STATE.PLAY) resetRun(); }
+  if(k==='p'){ if(state===STATE.PLAY) paused=!paused; }
+});
+addEventListener('keyup', e=>{
+  const k = e.key.toLowerCase();
+  if(k==='a'||k==='arrowleft')  keys.left=false;
+  if(k==='d'||k==='arrowright') keys.right=false;
+});
+
+/* =========================================================================
+   当たり判定ヘルパ
+   ========================================================================= */
+function aabb(a,b){
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+function pointSolid(px,py){
+  for(const s of SOLIDS) if(px>=s.x&&px<=s.x+s.w&&py>=s.y&&py<=s.y+s.h) return s;
+  return null;
+}
+
+/* プレイヤー（や箱型）の移動と地形衝突解決 */
+function moveAndCollide(o){
+  // 横
+  o.x += o.vx;
+  for(const s of SOLIDS){
+    if(aabb(o,s)){
+      if(o.vx>0) o.x = s.x - o.w;
+      else if(o.vx<0) o.x = s.x + s.w;
+      o.vx = 0;
+    }
+  }
+  // 縦
+  o.vy = Math.min(o.vy+GRAV, MAX_FALL);
+  o.y += o.vy;
+  o.onGround = false;
+  for(const s of SOLIDS){
+    if(aabb(o,s)){
+      if(o.vy>0){ o.y = s.y - o.h; o.onGround=true; }
+      else if(o.vy<0){ o.y = s.y + s.h; }
+      o.vy = 0;
+    }
+  }
+}
+
+/* 足元に地面があるか（クリボーの落下防止） */
+function hasGroundAhead(e, dir){
+  const fx = dir>0 ? e.x+e.w+3 : e.x-3;
+  return !!pointSolid(fx, e.y+e.h+3);
+}
+
+/* =========================================================================
+   更新
+   ========================================================================= */
+function update(){
+  frame++;
+  if(deathFlash>0){            // 死亡演出中は固まる
+    deathFlash--; jumpQueued=false;
+    if(deathFlash===0) resetRun();
+    updateCamera();
+    return;
+  }
+
+  /* --- プレイヤー操作 --- */
+  player.vx = (keys.right?RUN:0) - (keys.left?RUN:0);
+  if(player.vx>0) player.face=1; else if(player.vx<0) player.face=-1;
+  if(jumpQueued && player.onGround){ player.vy = JUMP_V; }
+  jumpQueued = false;
+  moveAndCollide(player);
+  player.anim += Math.abs(player.vx)*0.2;
+  if(player.invuln>0) player.invuln--;
+
+  // 落とし穴
+  if(player.y > FALL_DEATH_Y){ killPlayer(); return; }
+
+  /* --- 軌跡を記録し、影を進める --- */
+  pathBuf.push({x:player.x, y:player.y});
+  if(pathBuf.length > SHADOW_DELAY+2){
+    const p = pathBuf[pathBuf.length-1-SHADOW_DELAY];
+    shadow.x = p.x; shadow.y = p.y; shadow.active = true;
+  }
+  if(shadow.active && player.invuln<=0 && aabb(player, shadow)){ killPlayer(); return; }
+
+  /* --- 敵 --- */
+  for(const e of enemies){
+    if(e.dead) continue;
+    if(e.type==='goomba') updateGoomba(e);
+    else if(e.type==='para') updatePara(e);
+    else if(e.type==='piranha') updatePiranha(e);
+    else if(e.type==='thwomp') updateThwomp(e);
+    else if(e.type==='boss') updateBoss(e);
+  }
+  /* --- 黒い球 --- */
+  for(const b of balls){
+    b.vy = Math.min(b.vy+0.45, 14);
+    b.x += b.vx; b.y += b.vy;
+    if(b.y>GROUND_TOP-b.h && pointSolid(b.x+b.w/2, b.y+b.h)) b.dead=true;
+    if(b.x<-50||b.x>LEVEL.width+50||b.y>H+60) b.dead=true;
+    if(player.invuln<=0 && aabb(player,b)){ killPlayer(); return; }
+  }
+  balls = balls.filter(b=>!b.dead);
+
+  /* --- ゴール --- */
+  if(player.x + player.w >= LEVEL.goalX){ goalReached(); return; }
+
+  updateCamera();
+}
+
+function updateCamera(){
+  camX = Math.max(0, Math.min(player.x - W*0.38, LEVEL.width - W));
+}
+
+/* クリボー */
+function updateGoomba(e){
+  e.x += e.spd*e.dir;
+  // 壁 or 端で反転
+  if(pointSolid(e.dir>0?e.x+e.w+1:e.x-1, e.y+e.h*0.5) || !hasGroundAhead(e,e.dir))
+    e.dir*=-1;
+  e.y = GROUND_TOP - e.h;       // 地面追従(簡易)
+  handleStompOrHit(e, true);
+}
+
+/* パタパタ（飛行） */
+function updatePara(e){
+  e.t += 0.05;
+  e.y = e.baseY + Math.sin(e.t)*e.ampY;
+  e.x += e.spd*e.dir;
+  if(e.x<e.rangeL){e.x=e.rangeL;e.dir=1;}
+  if(e.x>e.rangeR){e.x=e.rangeR;e.dir=-1;}
+  handleStompOrHit(e, true);
+}
+
+/* パックンフラワー（土管の出入り） */
+function updatePiranha(e){
+  const pipe = LEVEL.pipes[e.pipe];
+  const topY = pipe.top;
+  e.timer--;
+  // プレイヤーが土管の真上に乗っていると出てこない
+  const onTop = player.x+player.w>pipe.x-6 && player.x<pipe.x+80 &&
+                Math.abs((player.y+player.h)-topY)<12;
+  if(e.timer<=0 && !onTop){
+    if(e.state==='hidden'){ e.state='up'; e.timer=140; }
+    else if(e.state==='up'){ e.state='hidden'; e.timer=110; }
+  }
+  const fullY = topY - e.h;          // 完全に出た時のy
+  const downY = topY + 12;           // 収納位置（リムより下）
+  const target = e.state==='up' ? fullY : downY;
+  if(e.y===undefined) e.y = downY;
+  e.y += (target - e.y)*0.16;
+  e.visible = e.y < topY - 4;        // リムより頭が出ている時だけ有効
+  if(e.visible) handleStompOrHit(e, true);
+}
+
+/* ドッスン（真下を通ると落下） */
+function updateThwomp(e){
+  if(e.state==='idle'){
+    const overlapX = player.x+player.w>e.x+8 && player.x<e.x+e.w-8;
+    if(overlapX && player.y>e.y){ e.state='fall'; e.vy=0; }
+  }else if(e.state==='fall'){
+    e.vy = Math.min(e.vy+1.1, 18); e.y += e.vy;
+    const hit = pointSolid(e.x+e.w/2, e.y+e.h+1);
+    if(hit){ e.y = hit.y - e.h; e.state='wait'; e.wait=40; }
+  }else if(e.state==='wait'){
+    if(--e.wait<=0) e.state='rise';
+  }else if(e.state==='rise'){
+    e.y -= 2.4;
+    if(e.y<=e.homeY){ e.y=e.homeY; e.state='idle'; }
+  }
+  // 接触で死亡（落下/着地中が危険）。上から踏めば倒せる
+  if(player.invuln<=0 && aabb(player,e)){
+    const stomp = player.vy>0 && (player.y+player.h) < e.y + e.h*0.5;
+    if(stomp && e.state!=='fall'){ e.dead=true; player.vy=JUMP_V*0.62; }
+    else killPlayer();
+  }
+}
+
+/* クッパ（ボス） */
+function updateBoss(e){
+  // 重力＋地面
+  e.vy = Math.min(e.vy+0.8, 18); e.y += e.vy;
+  const g = pointSolid(e.x+e.w/2, e.y+e.h+1);
+  if(g && e.vy>=0){ e.y=g.y-e.h; e.vy=0; e.onGround=true; } else e.onGround=false;
+  // 左右に少し揺れる
+  e.x += 0.6*e.dir;
+  if(e.x<e.homeX-70){e.dir=1;} if(e.x>e.homeX+70){e.dir=-1;}
+  // 高くジャンプ（この間、真下を通り抜けられる）
+  if(e.onGround){ if(--e.jumpTimer<=0){ e.vy=-19; e.jumpTimer=90; } }
+  // 黒い球を投げる
+  if(--e.shootTimer<=0){
+    e.shootTimer = 95;
+    const dx = (player.x - e.x);
+    const dir = dx>=0?1:-1;
+    balls.push({x:e.x+e.w/2-9, y:e.y+20, w:18, h:18,
+                vx:dir*(3+Math.random()*1.5), vy:-7});
+  }
+  // 接触＝死亡（踏んでも倒せない）
+  if(player.invuln<=0 && aabb(player,e)) killPlayer();
+}
+
+/* 踏み判定 or 接触ダメージ（クリボー/パタパタ/パックン共通） */
+function handleStompOrHit(e, stompable){
+  if(player.invuln>0 || !aabb(player,e)) return;
+  const stomp = player.vy>0 && (player.y+player.h) < e.y + e.h*0.55;
+  if(stompable && stomp){
+    e.dead = true;
+    player.vy = JUMP_V*0.62;       // 踏んだら小さく跳ねる
+  }else{
+    killPlayer();
+  }
+}
+
+/* 死亡処理：地点を記録してスタートへ */
+function killPlayer(){
+  deaths.push({x:player.x+player.w/2, y:player.y+player.h});
+  deathFlash = 36;
+  player.invuln = 1;
+}
+
+function goalReached(){
+  state = STATE.CLEAR;
+  document.getElementById('clearStats').textContent =
+    `死亡回数：${deaths.length}回`;
+  show('clearScreen');
+}
+
+/* =========================================================================
+   描画
+   ========================================================================= */
+function draw(){
+  // 空
+  const sky = ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#7ec8f0'); sky.addColorStop(1,'#cdeefb');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+
+  drawParallax();
+  ctx.save();
+  ctx.translate(-Math.round(camX),0);
+
+  drawGround();
+  drawPipes();
+  drawPlatforms();
+  drawDeathMarkers();
+  for(const e of enemies){ if(e.dead) continue; if(e.type==='piranha'&&!e.visible) continue; drawEnemy(e); }
+  drawPipeRims();
+  for(const b of balls) drawBall(b);
+  drawGoal();
+  if(shadow.active) drawShadow();
+  drawPlayer();
+
+  ctx.restore();
+  drawHUD();
+
+  if(deathFlash>0){
+    ctx.fillStyle=`rgba(255,40,60,${deathFlash/36*0.45})`;
+    ctx.fillRect(0,0,W,H);
+  }
+  if(paused){
+    ctx.fillStyle='rgba(13,10,19,.6)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#f3ead9'; ctx.font='28px DotGothic16,monospace';
+    ctx.textAlign='center'; ctx.fillText('PAUSE（Pで再開）',W/2,H/2);
+    ctx.textAlign='left';
+  }
+}
+
+function drawParallax(){
+  // 遠くの丘（ゆっくりスクロール）
+  ctx.fillStyle='#9fd9a6';
+  for(let i=0;i<8;i++){
+    const hx = i*520 - (camX*0.3)%520 - 260;
+    ctx.beginPath(); ctx.arc(hx,GROUND_TOP+30,180,Math.PI,0); ctx.fill();
+  }
+  // 雲
+  ctx.fillStyle='rgba(255,255,255,.85)';
+  for(let i=0;i<6;i++){
+    const cxp = i*430 - (camX*0.5)%430;
+    cloud(cxp+60, 70+ (i%2)*46);
+  }
+}
+function cloud(x,y){
+  ctx.beginPath();
+  ctx.arc(x,y,22,0,7); ctx.arc(x+24,y-8,26,0,7);
+  ctx.arc(x+52,y,22,0,7); ctx.rect(x-2,y,56,22); ctx.fill();
+}
+
+function drawGround(){
+  for(const s of LEVEL.segments){
+    // 土
+    ctx.fillStyle='#9c6b3f'; ctx.fillRect(s.x,GROUND_TOP,s.w,H-GROUND_TOP+40);
+    // 草
+    ctx.fillStyle='#5fb04b'; ctx.fillRect(s.x,GROUND_TOP,s.w,16);
+    ctx.fillStyle='#4c9a3c';
+    for(let x=s.x;x<s.x+s.w;x+=16) ctx.fillRect(x,GROUND_TOP+12,8,5);
+    // 縁
+    ctx.fillStyle='rgba(0,0,0,.12)';
+    ctx.fillRect(s.x,GROUND_TOP+16,s.w,3);
+  }
+}
+function drawPlatforms(){
+  for(const p of LEVEL.platforms){
+    ctx.fillStyle='#caa15a'; ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.fillStyle='#a07a36'; ctx.fillRect(p.x,p.y+p.h-5,p.w,5);
+    ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=2;
+    ctx.strokeRect(p.x+1,p.y+1,p.w-2,p.h-2);
+  }
+}
+function drawPipes(){            // 胴体のみ（縁は敵の後に重ねる）
+  for(const p of LEVEL.pipes){
+    const h = GROUND_TOP-p.top;
+    ctx.fillStyle='#2fa35a'; ctx.fillRect(p.x+6,p.top+14,62,h);
+    ctx.fillStyle='rgba(255,255,255,.25)'; ctx.fillRect(p.x+12,p.top+18,8,h-18);
+  }
+}
+function drawPipeRims(){          // 縁を最後に重ねて、花の根元を隠す
+  for(const p of LEVEL.pipes){
+    ctx.fillStyle='#3fcf72'; ctx.fillRect(p.x,p.top,74,18);
+    ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=2;
+    ctx.strokeRect(p.x+1,p.top+1,72,16);
+  }
+}
+
+function drawDeathMarkers(){
+  for(const d of deaths){
+    if(d.x<camX-40||d.x>camX+W+40) continue;
+    const x=d.x, y=d.y;
+    ctx.fillStyle='#7d7d8c';
+    ctx.beginPath();
+    ctx.moveTo(x-12,y); ctx.lineTo(x-12,y-22);
+    ctx.arc(x,y-22,12,Math.PI,0); ctx.lineTo(x+12,y); ctx.fill();
+    ctx.strokeStyle='#4a4a55'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#4a4a55'; ctx.font='12px DotGothic16,monospace';
+    ctx.textAlign='center'; ctx.fillText('R.I.P',x,y-18); ctx.textAlign='left';
+  }
+}
+
+function drawEnemy(e){
+  if(e.type==='goomba') drawGoomba(e);
+  else if(e.type==='para') drawPara(e);
+  else if(e.type==='piranha') drawPiranha(e);
+  else if(e.type==='thwomp') drawThwomp(e);
+  else if(e.type==='boss') drawBoss(e);
+}
+function drawGoomba(e){
+  ctx.fillStyle='#8a5a2b';
+  ctx.beginPath(); ctx.ellipse(e.x+e.w/2,e.y+e.h*0.45,e.w/2,e.h*0.45,0,0,7); ctx.fill();
+  ctx.fillStyle='#f2dcc0'; ctx.fillRect(e.x+4,e.y+e.h-7,e.w-8,7);
+  // 目
+  ctx.fillStyle='#fff'; ctx.fillRect(e.x+7,e.y+8,8,9); ctx.fillRect(e.x+e.w-15,e.y+8,8,9);
+  ctx.fillStyle='#000'; ctx.fillRect(e.x+10,e.y+10,3,5); ctx.fillRect(e.x+e.w-12,e.y+10,3,5);
+}
+function drawPara(e){
+  // 羽
+  const wing = Math.sin(frame*0.4)*6;
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.ellipse(e.x-4,e.y+10+wing,10,7,0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(e.x+e.w+4,e.y+10+wing,10,7,0,0,7); ctx.fill();
+  // 体（赤いカメ風）
+  ctx.fillStyle='#e2483f';
+  ctx.beginPath(); ctx.ellipse(e.x+e.w/2,e.y+e.h/2,e.w/2,e.h/2,0,0,7); ctx.fill();
+  ctx.fillStyle='#ffd24a'; ctx.fillRect(e.x+6,e.y+e.h-9,e.w-12,7);
+  ctx.fillStyle='#fff'; ctx.fillRect(e.x+8,e.y+7,7,8); ctx.fillRect(e.x+e.w-15,e.y+7,7,8);
+  ctx.fillStyle='#000'; ctx.fillRect(e.x+10,e.y+9,3,5); ctx.fillRect(e.x+e.w-12,e.y+9,3,5);
+}
+function drawPiranha(e){
+  // 茎
+  ctx.fillStyle='#2fa35a'; ctx.fillRect(e.x+e.w/2-4,e.y+e.h,8,GROUND_TOP-(e.y+e.h)+4);
+  // 頭
+  ctx.fillStyle='#e2483f';
+  ctx.beginPath(); ctx.ellipse(e.x+e.w/2,e.y+e.h*0.42,e.w/2,e.h*0.42,0,0,7); ctx.fill();
+  ctx.fillStyle='#fff';                 // 歯
+  for(let i=0;i<4;i++) ctx.fillRect(e.x+4+i*7, e.y+e.h*0.42, 4,4);
+  ctx.fillStyle='#fff';                 // 斑点
+  ctx.beginPath(); ctx.arc(e.x+9,e.y+9,3,0,7); ctx.arc(e.x+e.w-9,e.y+13,3,0,7); ctx.fill();
+}
+function drawThwomp(e){
+  ctx.fillStyle='#6b6f86'; ctx.fillRect(e.x,e.y,e.w,e.h);
+  ctx.fillStyle='#565a70'; ctx.fillRect(e.x,e.y,e.w,6); ctx.fillRect(e.x,e.y+e.h-8,e.w,8);
+  // とげ下面
+  ctx.fillStyle='#cfd2e0';
+  for(let i=0;i<5;i++){
+    ctx.beginPath();
+    ctx.moveTo(e.x+8+i*14,e.y+e.h); ctx.lineTo(e.x+15+i*14,e.y+e.h);
+    ctx.lineTo(e.x+11.5+i*14,e.y+e.h+9); ctx.fill();
+  }
+  // 顔（怒り）
+  ctx.fillStyle='#fff'; ctx.fillRect(e.x+16,e.y+24,16,12); ctx.fillRect(e.x+e.w-32,e.y+24,16,12);
+  ctx.fillStyle='#1a1a28'; ctx.fillRect(e.x+22,e.y+28,7,7); ctx.fillRect(e.x+e.w-29,e.y+28,7,7);
+  ctx.fillRect(e.x+24,e.y+46,e.w-48,5);
+}
+function drawBoss(e){
+  // 体
+  ctx.fillStyle='#2fa35a'; ctx.fillRect(e.x,e.y+18,e.w,e.h-18);
+  ctx.fillStyle='#f2c14b'; ctx.fillRect(e.x+10,e.y+e.h-26,e.w-20,20); // 腹
+  // 頭
+  ctx.fillStyle='#3fb56a'; ctx.fillRect(e.x+12,e.y,e.w-24,30);
+  // 角
+  ctx.fillStyle='#f2ead0';
+  ctx.beginPath(); ctx.moveTo(e.x+12,e.y+4); ctx.lineTo(e.x+2,e.y-12); ctx.lineTo(e.x+22,e.y+4); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(e.x+e.w-12,e.y+4); ctx.lineTo(e.x+e.w-2,e.y-12); ctx.lineTo(e.x+e.w-22,e.y+4); ctx.fill();
+  // 目
+  ctx.fillStyle='#fff'; ctx.fillRect(e.x+24,e.y+8,14,12); ctx.fillRect(e.x+e.w-38,e.y+8,14,12);
+  ctx.fillStyle='#c0202a'; ctx.fillRect(e.x+30,e.y+11,6,7); ctx.fillRect(e.x+e.w-34,e.y+11,6,7);
+  // とげ甲羅
+  ctx.fillStyle='#f2ead0';
+  for(let i=0;i<3;i++){
+    ctx.beginPath();
+    ctx.moveTo(e.x+18+i*26,e.y+18); ctx.lineTo(e.x+30+i*26,e.y+18);
+    ctx.lineTo(e.x+24+i*26,e.y+4); ctx.fill();
+  }
+}
+function drawGoal(){
+  const gx = LEVEL.goalX;
+  // ポール
+  ctx.fillStyle='#d8d8e0'; ctx.fillRect(gx-4, 150, 8, GROUND_TOP-150);
+  ctx.fillStyle='#f2c14b'; ctx.beginPath(); ctx.arc(gx,150,9,0,7); ctx.fill();
+  // 旗（はためく）
+  const wave = Math.sin(frame*0.15)*6;
+  ctx.fillStyle='#5bd6a0';
+  ctx.beginPath();
+  ctx.moveTo(gx+4,158); ctx.lineTo(gx+74,168+wave);
+  ctx.lineTo(gx+4,188); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#0d2a1e'; ctx.font='14px DotGothic16,monospace'; ctx.textAlign='left';
+  ctx.fillText('GOAL', gx+14, 178);
+  // 土台
+  ctx.fillStyle='#caa15a'; ctx.fillRect(gx-26, GROUND_TOP-24, 52, 24);
+}
+function drawBall(b){
+  ctx.fillStyle='#15121d';
+  ctx.beginPath(); ctx.arc(b.x+b.w/2,b.y+b.h/2,b.w/2,0,7); ctx.fill();
+  ctx.fillStyle='rgba(255,90,120,.6)';
+  ctx.beginPath(); ctx.arc(b.x+b.w/2-3,b.y+b.h/2-3,3,0,7); ctx.fill();
+}
+
+function drawPlayer(){
+  const p=player, blink = p.invuln>0 && (frame>>2)%2===0;
+  if(blink) return;
+  const bob = p.onGround ? Math.sin(p.anim)*1.5 : 0;
+  const x=p.x, y=p.y+bob;
+  // 体
+  ctx.fillStyle='#2f6df0'; ctx.fillRect(x+4,y+18,p.w-8,p.h-18);
+  // 顔
+  ctx.fillStyle='#ffd8a8'; ctx.fillRect(x+4,y+6,p.w-8,16);
+  // 帽子
+  ctx.fillStyle='#e23a3a'; ctx.fillRect(x+1,y,p.w-2,8); ctx.fillRect(x+(p.face>0?p.w-8:0),y+4,8,5);
+  // 目
+  ctx.fillStyle='#1a1a28';
+  ctx.fillRect(x+(p.face>0?p.w-13:7),y+11,4,5);
+  // 足
+  ctx.fillStyle='#3a2a1a';
+  const step = p.onGround ? Math.sin(p.anim)*3 : 0;
+  ctx.fillRect(x+5,y+p.h-4+ (step>0?step:0),9,4);
+  ctx.fillRect(x+p.w-14,y+p.h-4+ (step<0?-step:0),9,4);
+}
+
+function drawShadow(){
+  const s=shadow;
+  // 残像（少し前の軌跡）
+  for(let i=1;i<=4;i++){
+    const idx = pathBuf.length-1-SHADOW_DELAY - i*5;
+    if(idx<0) break;
+    const q=pathBuf[idx];
+    ctx.fillStyle=`rgba(124,92,255,${0.12 - i*0.02})`;
+    ctx.fillRect(q.x+4,q.y+6,s.w-8,s.h-6);
+  }
+  // 本体
+  ctx.fillStyle='rgba(20,16,30,.92)';
+  ctx.fillRect(s.x+3,s.y+4,s.w-6,s.h-4);
+  ctx.fillStyle='rgba(124,92,255,.5)';
+  ctx.fillRect(s.x+1,s.y,s.w-2,8);            // 帽子のシルエット
+  // 光る目
+  const glow = 0.6+Math.sin(frame*0.2)*0.4;
+  ctx.fillStyle=`rgba(255,90,150,${glow})`;
+  ctx.fillRect(s.x+8,s.y+11,4,5); ctx.fillRect(s.x+s.w-12,s.y+11,4,5);
+}
+
+function drawHUD(){
+  ctx.fillStyle='rgba(20,16,30,.55)'; ctx.fillRect(12,12,206,40);
+  ctx.fillStyle='#f3ead9'; ctx.font='16px DotGothic16,monospace'; ctx.textAlign='left';
+  ctx.fillText(`死亡  ${deaths.length}`, 24, 38);
+  // 進捗バー
+  const prog = Math.max(0,Math.min(1,(player.x-LEVEL.startX)/(LEVEL.goalX-LEVEL.startX)));
+  ctx.fillStyle='rgba(20,16,30,.55)'; ctx.fillRect(W-262,16,250,16);
+  ctx.fillStyle='#5bd6a0'; ctx.fillRect(W-260,18,246*prog,12);
+  ctx.fillStyle='#f3ead9'; ctx.font='11px DotGothic16,monospace';
+  ctx.fillText('START',W-262,46); ctx.textAlign='right';
+  ctx.fillText('GOAL',W-12,46); ctx.textAlign='left';
+}
+
+/* =========================================================================
+   ループ & 画面遷移
+   ========================================================================= */
+function loop(){
+  if(state===STATE.PLAY && !paused) update();
+  if(state===STATE.PLAY || state===STATE.CLEAR) draw();
+  requestAnimationFrame(loop);
+}
+
+function show(id){
+  for(const el of document.querySelectorAll('.overlay')) el.classList.remove('show');
+  if(id) document.getElementById(id).classList.add('show');
+}
+function startGame(){ fullReset(); state=STATE.PLAY; paused=false; show(null); }
+
+document.getElementById('startBtn').onclick   = startGame;
+document.getElementById('restartBtn').onclick = startGame;
+document.getElementById('againBtn').onclick   = startGame;
+document.getElementById('quitBtn').onclick    = ()=>{ state=STATE.END; show('endScreen'); };
+
+fullReset();
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>
